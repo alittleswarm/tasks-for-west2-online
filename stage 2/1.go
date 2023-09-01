@@ -12,14 +12,20 @@ import (
 )
 
 func main() {
-	//totalPage := getTotaoPage()
 	ch := make(chan int) //同步
-	num := 300           //end 148
-	start := 148         //start  267
-	for i := start; i <= num; i++ {
+	start, end := setStart()
+	mid := (start + end) / 2
+	for i := start; i < mid; i++ {
+		go work(i, ch)
+
+	}
+	for i := start; i < mid; i++ {
+		<-ch
+	}
+	for i := mid; i <= end; i++ {
 		go work(i, ch)
 	}
-	for i := start; i <= num; i++ {
+	for i := mid; i <= end; i++ {
 		<-ch
 	}
 }
@@ -29,7 +35,7 @@ func main() {
 func work(index int, ch chan int) {
 	url := "https://info22.fzu.edu.cn/lm_list.jsp?PAGENUM=" + strconv.Itoa(index) + "&wbtreeid=1460"
 	data := get(url)
-	fmt.Printf("正在爬取第%d页\n", index)
+	fmt.Printf("正在爬取第%d页的20条通知\n", index)
 	l0, l1, l2, l3 := getUrl(data)
 	for i := 0; i < len(l1); i++ {
 		if !isWant(l2, i) {
@@ -44,12 +50,18 @@ func work(index int, ch chan int) {
 	ch <- index
 }
 
+// 设置起始和结束页
+func setStart() (start int, end int) {
+	totalPage := getTotaoPage()
+	start = 170 + totalPage - 951 //以951为基准
+	end = 270 + totalPage - 951
+	return
+}
+
 // 判断日期
 func isWant(date []string, index int) bool {
 	if !(date[index] >= "2020-01-01" && date[index] <= "2021-09-01") {
 		return false
-	} else if date[index] < "2020-01-01" {
-		os.Exit(114514)
 	}
 	return true
 }
@@ -103,15 +115,17 @@ func getUrl(data []byte) (list0 []string, list1 []string, list2 []string, list3 
 
 		return
 	}
-	ul := htmlquery.Find(doc, "//ul")
-	listP := htmlquery.Find(ul[5], "//p")
-	for _, v := range listP {
+	li := htmlquery.Find(doc, "//li[contains(@class, 'clearfloat')]")
+	for i, _ := range li {
+		listP := htmlquery.Find(li[i], ".//p")
+		for _, v := range listP {
 
-		a := htmlquery.Find(v, "//a")
-		list1 = append(list1, htmlquery.SelectAttr(a[1], "href"))
-		list0 = append(list0, htmlquery.InnerText(a[0]))
-		list3 = append(list3, htmlquery.InnerText(a[1]))
-		list2 = append(list2, htmlquery.InnerText(htmlquery.FindOne(v, "//span")))
+			a := htmlquery.Find(v, "//a")
+			list1 = append(list1, htmlquery.SelectAttr(a[1], "href"))
+			list0 = append(list0, htmlquery.InnerText(a[0]))
+			list3 = append(list3, htmlquery.InnerText(a[1]))
+			list2 = append(list2, htmlquery.InnerText(htmlquery.FindOne(v, "//span")))
+		}
 	}
 
 	return
